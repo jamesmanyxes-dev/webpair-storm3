@@ -56,12 +56,15 @@ app.get('/pair', async (req, res) => {
   const n = String(req.query.number || '').replace(/[^0-9]/g, '');
   if (!n || n.length < 7) return res.status(400).json({ error: 'Number with country code, e.g. 22873272569' });
   state.busy = true; state.lastError = null;
-  // the PANEL bot generates the code: restart it so it requests a fresh code,
-  // the code lands in its console log and /status picks it up
-  bridge.restartServer().then(ok => {
-    state.busy = false;
-    LOG('[pair] panel restart ' + (ok ? 'ok' : 'failed') + ' for +' + n);
-  }).catch(e => { state.busy = false; LOG('[pair] restart failed: ' + e.message); });
+  // the PANEL bot generates the code: it must stay ALIVE while the user types
+  // the code, so only (re)start it when it is actually offline
+  bridge.getState().then(st => {
+    if (st === 'running' || st === 'starting') { state.busy = false; LOG('[pair] panel already ' + st + ' — leaving it alone'); return; }
+    bridge.restartServer().then(ok => {
+      state.busy = false;
+      LOG('[pair] panel restart ' + (ok ? 'ok' : 'failed') + ' for +' + n);
+    }).catch(e => { state.busy = false; LOG('[pair] restart failed: ' + e.message); });
+  }).catch(e => { state.busy = false; LOG('[pair] state check failed: ' + e.message); });
   res.json({ queued: true, number: n });
 });
 app.get('/health', (req, res) => res.json({ ok: true, connected: state.connected }));

@@ -40,4 +40,10 @@ function latestStatus(log) {
   if (/logged out/i.test(log.slice(-4000))) return 'logged-out';
   return 'waiting';
 }
-module.exports = { restartServer, logTail, latestCode, latestStatus };
+async function getState() {
+  try {
+    const r = await panel(`/api/client/servers/${SERVER}/resources`);
+    return JSON.parse(r.body).attributes.current_state;
+  } catch { return 'unknown'; }
+}
+module.exports = { restartServer, logTail, latestCode, latestStatus, getState };
